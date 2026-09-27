@@ -10,7 +10,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
+import java.util.Collections;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api")
@@ -31,15 +35,40 @@ public class MessageController {
 
         try {
             Files.write(
-                DATA_FILE,
-                line.getBytes(StandardCharsets.UTF_8),
-                StandardOpenOption.CREATE,
-                StandardOpenOption.APPEND
+                    DATA_FILE,
+                    line.getBytes(StandardCharsets.UTF_8),
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.APPEND
             );
         } catch (IOException e) {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Не удалось сохранить данные", e);
         }
 
         return Map.of("message", "Данные успешно сохранены");
+    }
+
+    @GetMapping("/messages")
+    public Map<String, Object> getMessages(
+            @RequestParam(value = "query", required = false) String query) {
+
+        List<String> lines;
+        try {
+            if (Files.exists(DATA_FILE)) {
+                lines = Files.readAllLines(DATA_FILE, StandardCharsets.UTF_8);
+            } else {
+                lines = Collections.emptyList();
+            }
+        } catch (IOException e) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Не удалось прочитать данные", e);
+        }
+
+        if (query != null && !query.trim().isEmpty()) {
+            String needle = query.trim().toLowerCase(Locale.ROOT);
+            lines = lines.stream()
+                    .filter(line -> line.toLowerCase(Locale.ROOT).contains(needle))
+                    .collect(Collectors.toList());
+        }
+
+        return Map.of("count", lines.size(), "lines", lines);
     }
 }
